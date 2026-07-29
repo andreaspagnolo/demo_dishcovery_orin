@@ -55,12 +55,13 @@ code/
 ├── orin_measurements.py     Latency, RAM, power, and nvpmodel measurement
 ├── orin_task1_pipeline.py   Task 1 evaluation/inference
 └── orin_task2_pipeline.py   Task 2 evaluation/inference
+demo/                        Browser-demo routing, history, nutrition, and UI assets
+demo_web_app.py              Browser demo server entry point
 config/                      Platform, checksums, and expected metrics
 patches/                     Persistent EdgeLLM server and reranker-logit patch
 reference_results/           Per-image predictions from the reference runs
 scripts/
 ├── run_benchmarks.py        Fixed Task 1/Task 2 reproduction entry point
-├── run_demo.py              Good-predictions subset demo; optional single-image mode
 └── verify_setup.py          Input, image, runtime, and engine verification
 ```
 
@@ -460,38 +461,39 @@ Reranker scoring:           patched next-token true/false logits
 
 ## 7. Run the quantized demo
 
-By default, each demo command runs the corresponding curated good-predictions
-showcase included in the Drive image archive. Task 1 and calorie estimation use
-the 40 curated MM-Food-100K images; Task 2 uses the 40 curated Food-500 images.
-The CLI uses the same quantized engines as the benchmark and omits unrelated
-web and speech components.
+The browser application runs the quantized Task 1, Task 2, and calorie routes
+on an uploaded image or on the curated 80-image good-predictions showcase. It
+uses the same FP16 SigLIP2 engine, INT4 Task 1 Qwen engine, INT4 Task 2 reranker,
+and fixed candidate policies as this package.
 
 ```bash
-# Ingredient selection: 40 curated MM-Food-100K images
-python scripts/run_demo.py task1
-
-# Caption retrieval: 40 curated Food-500 images
-python scripts/run_demo.py task2
-
-# Calorie estimation: 40 curated MM-Food-100K images
-python scripts/run_demo.py calories
+python demo_web_app.py \
+  --host 127.0.0.1 \
+  --port 8787 \
+  --demo-subset good \
+  --preload-backends task1,task2_fast,calories
 ```
 
-The generated image lists, predictions, and JSON traces are written under
-`demo_outputs/`. To run one arbitrary local image instead, pass it explicitly:
+Open [http://127.0.0.1:8787](http://127.0.0.1:8787) in a browser on the Orin.
+For a remote browser, use the Orin’s LAN address for `--host` and open the
+corresponding address from the client machine. Press `Ctrl+C` in the terminal to
+stop the server.
+
+The initial model preload can take time; the terminal shows its progress. The
+web UI lets you choose a showcase image or upload a local image, then run
+**Task 1**, **Task 2**, **Estimate calories**, or both Task 1 and Task 2.
+Per-request JSON traces and nutrition history are saved under `demo_runs/web/`.
+
+For a quick UI-only check that does not load models, use:
 
 ```bash
-python scripts/run_demo.py task1 path/to/food.jpg
-python scripts/run_demo.py task2 path/to/food.jpg
-python scripts/run_demo.py calories path/to/food.jpg
+python demo_web_app.py --mock-backend
 ```
 
-Task 1 returns selected ingredient labels. Task 2 retrieves the best caption
-from the fixed 4,940-caption bank. The calorie task uses fixed top-20 SigLIP2
-ingredient candidates, one compact Qwen composition call, deterministic
-portion/count parsing, and the included calorie table to estimate total kcal.
-Its output is an estimate: the showcase has no quantity or calorie ground
-truth, so this command demonstrates inference rather than calorie accuracy.
+The calorie result is an estimate: the showcase has no quantity or calorie
+ground truth, so the web route demonstrates inference rather than calorie
+accuracy. Speech input and Piper text-to-speech are optional and are disabled
+gracefully when their external packages or models are unavailable.
 
 ## 8. Rebuild the quantized models
 

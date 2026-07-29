@@ -6,6 +6,7 @@ external_assets/
 model_build/
 run_outputs/
 demo_outputs/
+demo_runs/
 
 *.engine
 *.onnx

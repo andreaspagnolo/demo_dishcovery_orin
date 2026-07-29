@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dishcovery Pipeline Console</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="partner-strip" aria-label="Project partners">
+            <div class="partner-lockup">
+              <img
+                class="partner-logo partner-logo-st"
+                src="/static/assets/stmicroelectronics.svg"
+                alt="STMicroelectronics logo"
+              />
+              <span>System Research</span>
+            </div>
+            <div class="partner-divider" aria-hidden="true"></div>
+            <div class="partner-lockup">
+              <img
+                class="partner-logo partner-logo-unimib"
+                src="/static/assets/unimib-logo.png"
+                alt="University of Milan Bicocca logo"
+              />
+              <span>University of Milan Bicocca</span>
+            </div>
+          </div>
+          <div class="brand-title">
+            <h1>Dishcovery Pipeline Console</h1>
+            <p class="author-line">Author: Andrea Spagnolo</p>
+            <nav class="view-tabs" aria-label="Application views">
+              <button id="pipelineViewButton" class="view-tab active" type="button" data-view="pipeline">Pipeline</button>
+              <button id="personalViewButton" class="view-tab" type="button" data-view="personal">Personal Area</button>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      <section id="pipelineView" class="app-view active-view" aria-label="Pipeline view">
+        <section class="workbench" aria-label="Pipeline workbench">
+          <section id="imageZone" class="image-zone" aria-label="Image input" hidden>
+            <div id="imageFrame" class="image-frame">
+              <video id="cameraVideo" playsinline autoplay muted></video>
+              <img id="imagePreview" alt="Selected dish" />
+              <div id="emptyImage" class="empty-image">
+                <span>Dish image</span>
+              </div>
+              <button id="prevImageButton" class="image-nav image-nav-prev" type="button" aria-label="Previous dataset image">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15 5L8 12L15 19" />
+                </svg>
+              </button>
+              <button id="nextImageButton" class="image-nav image-nav-next" type="button" aria-label="Next dataset image">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 5L16 12L9 19" />
+                </svg>
+              </button>
+              <div id="imageScan" class="image-scan" aria-hidden="true"></div>
+              <div class="image-meta">
+                <span id="imageName">Sample</span>
+                <span id="imageState">Ready</span>
+              </div>
+            </div>
+            <div class="image-toolbar">
+              <button id="cameraButton" type="button">Camera</button>
+              <button id="uploadButton" type="button">Upload</button>
+            </div>
+          </section>
+
+          <aside class="output-zone" aria-label="Pipeline output">
+            <div class="output-header">
+              <span>Output</span>
+              <div class="output-tools">
+                <button
+                  id="diagnosticsButton"
+                  class="icon-toggle"
+                  type="button"
+                  aria-label="Open performance diagnostics"
+                  data-tooltip="Open timing, power, CPU/GPU, RAM, and Jetson system diagnostics for the last image run."
+                  disabled
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 19h16" />
+                    <path d="M6 16l4-5 4 3 4-7" />
+                    <path d="M6 16v3" />
+                    <path d="M10 11v8" />
+                    <path d="M14 14v5" />
+                    <path d="M18 7v12" />
+                  </svg>
+                </button>
+                <button
+                  id="soundButton"
+                  class="sound-toggle active"
+                  type="button"
+                  aria-label="Sound output on"
+                  aria-pressed="true"
+                  data-tooltip="Sound output on"
+                >
+                  <span id="soundIcon" aria-hidden="true">&#128266;</span>
+                </button>
+                <span id="latencyMetric" class="latency-badge">Time --</span>
+              </div>
+            </div>
+            <div id="answerText" class="answer-text">Waiting for a pipeline run.</div>
+            <div id="outputMeta" class="output-meta"></div>
+            <div id="resultDetails" class="result-details"></div>
+          </aside>
+        </section>
+
+        <section class="control-band" aria-label="Pipeline controls">
+          <div class="task-grid">
+            <button class="task-button active" type="button" data-task="task1">
+              <span class="task-index">01</span>
+              <span class="task-title">Ingredients</span>
+              <span class="task-subtitle">visual multi-label</span>
+            </button>
+            <button class="task-button" type="button" data-task="task2">
+              <span class="task-index">02</span>
+              <span class="task-title">Dish description</span>
+              <span class="task-subtitle">caption alignment</span>
+            </button>
+            <button class="task-button" type="button" data-task="calories">
+              <span class="task-index">03</span>
+              <span class="task-title">Calories</span>
+              <span class="task-subtitle">composition estimate</span>
+            </button>
+            <button id="voiceButton" class="utility-button" type="button">
+              <span class="task-index">VC</span>
+              <span class="task-title">Voice command</span>
+              <span id="voiceStatus" class="task-subtitle">click, then speak</span>
+            </button>
+          </div>
+          <div class="pipeline-panel">
+            <div class="pipeline-header">
+              <span>Pipeline</span>
+              <span id="currentStage">Idle</span>
+            </div>
+            <div id="pipelineSteps" class="pipeline-steps"></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="personalView" class="app-view personal-view" aria-label="Personal nutrition area" hidden>
+        <section class="personal-grid">
+          <section class="nutrition-panel profile-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-eyebrow">Profile</p>
+                <h2>Daily requirement</h2>
+              </div>
+              <span id="profileStatus" class="status-pill">Not saved</span>
+            </div>
+            <form id="profileForm" class="profile-form">
+              <label>
+                <span>Name</span>
+                <input id="profileName" type="text" autocomplete="name" maxlength="80" />
+              </label>
+              <label>
+                <span>Sex</span>
+                <select id="profileSex">
+                  <option value="">Select</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </label>
+              <label>
+                <span>Age</span>
+                <input id="profileAge" type="number" min="10" max="120" inputmode="numeric" />
+              </label>
+              <label>
+                <span>Height cm</span>
+                <input id="profileHeight" type="number" min="80" max="250" step="0.1" inputmode="decimal" />
+              </label>
+              <label>
+                <span>Weight kg</span>
+                <input id="profileWeight" type="number" min="25" max="350" step="0.1" inputmode="decimal" />
+              </label>
+              <label>
+                <span>Activity</span>
+                <select id="profileActivity">
+                  <option value="sedentary">Sedentary</option>
+                  <option value="light">Light</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="active">Active</option>
+                  <option value="very_active">Very active</option>
+                </select>
+              </label>
+              <label>
+                <span>Daily goal kcal</span>
+                <input id="profileGoal" type="number" min="800" max="6000" inputmode="numeric" />
+              </label>
+              <div class="profile-actions">
+                <button class="primary-action" type="submit">Save Profile</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="nutrition-panel budget-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-eyebrow">Today</p>
+                <h2>Calorie budget</h2>
+              </div>
+              <span id="budgetStatus" class="status-pill">No limit</span>
+            </div>
+            <div id="budgetCards" class="budget-cards"></div>
+            <div id="requirementDetails" class="requirement-details"></div>
+          </section>
+        </section>
+
+        <section class="nutrition-panel history-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Diet history</p>
+              <h2>Consumed dishes</h2>
+            </div>
+            <div class="segmented-control" aria-label="History grouping">
+              <button id="historyDayViewButton" class="active" type="button" data-history-view="day">Day</button>
+              <button id="historyMonthViewButton" type="button" data-history-view="month">Month</button>
+            </div>
+          </div>
+          <form id="historyForm" class="dish-composer">
+            <input id="historyEditId" type="hidden" />
+            <div class="composer-heading">
+              <div>
+                <p class="panel-eyebrow">Add dish</p>
+                <h3 id="historyComposerTitle">New consumed dish</h3>
+              </div>
+              <div class="history-total" aria-live="polite">
+                <span>Calculated kcal</span>
+                <strong id="historyCalculatedCalories">--</strong>
+              </div>
+            </div>
+            <div class="composer-controls">
+              <label>
+                <span>Date and time</span>
+                <input id="historyConsumedAt" type="datetime-local" required />
+              </label>
+              <button id="addIngredientButton" class="secondary-action ingredient-add-button" type="button">Add Ingredient</button>
+            </div>
+            <label class="ingredients-field">
+              <span>Ingredients</span>
+              <div id="historyIngredients" class="ingredients-editor"></div>
+            </label>
+            <div class="composer-actions">
+              <button id="historySubmitButton" class="primary-action" type="submit">Add Dish</button>
+              <button id="historyCancelEditButton" class="secondary-action" type="button" hidden>Cancel</button>
+            </div>
+          </form>
+          <div class="history-controls">
+            <label>
+              <span>From</span>
+              <input id="historyFrom" type="date" />
+            </label>
+            <label>
+              <span>To</span>
+              <input id="historyTo" type="date" />
+            </label>
+            <button id="historyRefreshButton" class="secondary-action" type="button">Refresh</button>
+          </div>
+          <div id="historyGroups" class="history-groups"></div>
+        </section>
+
+        <section class="nutrition-panel summary-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Summary</p>
+              <h2>Diet adherence</h2>
+            </div>
+          </div>
+          <div id="nutritionStats" class="nutrition-stats"></div>
+          <div id="nutritionChart" class="nutrition-chart"></div>
+        </section>
+      </section>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="floatingTooltip" class="floating-tooltip" role="tooltip" hidden></div>
+      <div id="diagnosticsModal" class="modal-backdrop" hidden>
+        <section class="diagnostics-modal" role="dialog" aria-modal="true" aria-labelledby="diagnosticsTitle">
+          <div class="modal-header">
+            <div>
+              <p class="modal-eyebrow">Performance</p>
+              <h2 id="diagnosticsTitle">Run diagnostics</h2>
+            </div>
+            <button id="diagnosticsCloseButton" class="modal-close" type="button" aria-label="Close diagnostics">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12" />
+                <path d="M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+          <div id="diagnosticsContent" class="diagnostics-content"></div>
+        </section>
+      </div>
+    </main>
+
+    <input id="imageUpload" type="file" accept="image/*" />
+    <datalist id="ingredientOptions"></datalist>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
