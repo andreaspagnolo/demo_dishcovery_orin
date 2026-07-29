@@ -33,6 +33,7 @@ multi-gigabyte TensorRT/EdgeLLM artifacts are downloaded from Google Drive.
 - [7. Run the quantized demo](#7-run-the-quantized-demo)
 - [8. Rebuild the quantized models](#8-rebuild-the-quantized-models)
 - [9. Reproducibility notes](#9-reproducibility-notes)
+- [10. Ownership and license](#10-ownership-and-license)
 
 ---
 
@@ -715,3 +716,18 @@ verification is the final compatibility test.
 - Model loading and cached text-bank loading are excluded from the reported
   per-query latency.
 - `ram.delta_system_used_mib`, not process RSS, is the reported RAM definition.
+
+## 10. Ownership and license
+
+Except where otherwise stated, the original material in this repository is
+licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International License (CC BY-NC-SA 4.0).
+
+Copyright © 2026 Andrea Spagnolo, Danilo Pau, and
+STMicroelectronics S.r.l.
+
+See [`LICENSE.md`](LICENSE.md) for the complete license terms.
+
+Third-party software, models, datasets, images, trademarks, and external assets
+retain their respective licenses and are not covered by this repository's
+license unless explicitly stated.
