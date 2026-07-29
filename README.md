@@ -174,18 +174,80 @@ Do not commit `external_assets/`; it is excluded by `.gitignore`.
 ### 4.1 Python environment
 
 JetPack-compatible PyTorch and torchvision wheels must be installed before
-the small Python requirements. Do not replace them with ordinary x86 PyPI
-wheels.
+the small Python requirements. Do not use the ordinary PyPI PyTorch package:
+the benchmark requires an `aarch64` build with CUDA support for JetPack 6.2
+and CUDA 12.6.
+
+Create the virtual environment with access to the Python packages supplied by
+JetPack:
 
 ```bash
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-
-# Install NVIDIA's JetPack-compatible torch 2.8.0 and torchvision 0.23.0
-# wheels for the target Orin image, then:
-python -m pip install -r requirements.txt
+python -m pip install --upgrade pip setuptools wheel
 ```
+
+Install the Python dependencies required by the Jetson PyTorch wheels from the
+standard PyPI index. Pinning SymPy is necessary because the Ubuntu system copy
+is too old for PyTorch 2.8.0, and the local virtual-environment copy must take
+precedence over `/usr/lib/python3/dist-packages`:
+
+```bash
+python -m pip install --index-url https://pypi.org/simple \
+  filelock \
+  typing-extensions \
+  "sympy==1.13.3" \
+  networkx \
+  jinja2 \
+  fsspec \
+  numpy \
+  pillow \
+  cffi
+```
+
+Install the validated JetPack 6 / CUDA 12.6 `aarch64` wheels. `--no-deps` is
+intentional: the Jetson wheel index contains the platform-specific wheels but
+not every generic Python dependency.
+
+```bash
+python -m pip install --no-cache-dir --no-deps \
+  --index-url https://pypi.jetson-ai-lab.io/jp6/cu126 \
+  torch==2.8.0 \
+  torchvision==0.23.0
+```
+
+Then install the repository requirements and check the environment:
+
+```bash
+python -m pip install -r requirements.txt
+python -m pip check
+```
+
+Verify that the expected packages are imported from the virtual environment and
+that CUDA is available before continuing:
+
+```bash
+python - <<'PY'
+import sympy
+import torch
+import torchvision
+
+print("SymPy:", sympy.__version__, sympy.__file__)
+print("PyTorch:", torch.__version__)
+print("torchvision:", torchvision.__version__)
+print("CUDA build:", torch.version.cuda)
+print("CUDA available:", torch.cuda.is_available())
+
+if not torch.cuda.is_available():
+    raise RuntimeError("PyTorch is installed, but CUDA is not available")
+
+print("GPU:", torch.cuda.get_device_name(0))
+PY
+```
+
+The expected versions are PyTorch `2.8.0`, torchvision `0.23.0`, and a CUDA
+`12.6` build. The exact GPU name may vary slightly, but it must identify the
+Jetson Orin GPU.
 
 TensorRT Python bindings are supplied by JetPack under the system Python
 packages. The pipeline automatically checks
@@ -215,21 +277,47 @@ git -C ../TensorRT-Edge-LLM apply \
   "$PWD/patches/tensorrt_edgellm_reranker_logits.patch"
 ```
 
-Build on JetPack 6.2 Orin:
+Build on JetPack 6.2 Orin. CuTe DSL must be disabled for this pinned
+TensorRT-Edge-LLM revision on the reference CUDA 12.6 stack. Enabling it with
+`-DENABLE_CUTE_DSL=ALL` can fail during linking with unresolved
+`cudaLibrary*` and `cudaKernelSetAttributeForDevice` symbols, and it is not
+required by these Dishcovery engines.
+
+Remove a previous failed or differently configured build directory, configure,
+and compile:
 
 ```bash
+rm -rf ../TensorRT-Edge-LLM/build
+
 cmake -S ../TensorRT-Edge-LLM -B ../TensorRT-Edge-LLM/build \
   -DCMAKE_BUILD_TYPE=Release \
   -DTRT_PACKAGE_DIR=/usr \
   -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64_linux_toolchain.cmake \
   -DEMBEDDED_TARGET=jetson-orin \
   -DCUDA_CTK_VERSION=12.6 \
-  -DENABLE_CUTE_DSL=ALL
+  -DENABLE_CUTE_DSL=OFF
 
 cmake --build ../TensorRT-Edge-LLM/build -j"$(nproc)"
 ```
 
-The reproduction scripts require:
+The build is successful only if the command finishes without `Error 1`,
+`Error 2`, or `undefined reference` messages. A final line such as
+`Built target NvInfer_edgellm_plugin` confirms the plugin target, but both
+runtime artifacts must be checked explicitly:
+
+```bash
+ls -lh \
+  ../TensorRT-Edge-LLM/build/libNvInfer_edgellm_plugin.so \
+  ../TensorRT-Edge-LLM/build/examples/llm/llm_persistent_server
+
+test -e ../TensorRT-Edge-LLM/build/libNvInfer_edgellm_plugin.so \
+  && test -x ../TensorRT-Edge-LLM/build/examples/llm/llm_persistent_server \
+  && echo "TensorRT-Edge-LLM build completed successfully"
+```
+
+`libNvInfer_edgellm_plugin.so` may be a symbolic link to a versioned library
+such as `libNvInfer_edgellm_plugin.so.1`; this is normal as long as the target
+exists. The reproduction scripts require these resolved paths:
 
 ```text
 ../TensorRT-Edge-LLM/build/libNvInfer_edgellm_plugin.so
@@ -244,22 +332,49 @@ export EDGE_LLM_PATH=/absolute/path/to/TensorRT-Edge-LLM
 
 ## 5. Verify the setup
 
-Verify all Git inputs, all 700 benchmark images, the runtime binaries, and the
-five key engine hashes:
+First verify the Python runtime. This separate check is required because
+`scripts/verify_setup.py` validates repository inputs, images, runtime files,
+and engines, but it does not currently prove that PyTorch can be imported or
+that CUDA is visible:
 
 ```bash
-python scripts/verify_setup.py
+python - <<'PY'
+import torch
+import torchvision
+
+print("PyTorch:", torch.__version__)
+print("torchvision:", torchvision.__version__)
+print("CUDA build:", torch.version.cuda)
+print("CUDA available:", torch.cuda.is_available())
+
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA is not available in the active Python environment")
+
+print("GPU:", torch.cuda.get_device_name(0))
+PY
 ```
 
-Hashing the approximately 6 GB of engine files takes some time. For a quick
-path/count check:
+Next run the quick repository, image-count, runtime, and engine-path check:
 
 ```bash
 python scripts/verify_setup.py --skip-engine-hashes
 ```
 
-Every row must be reported as `OK`. The fixed input and engine hashes are also
-documented in `config/sha256.txt`.
+Every row must be reported as `OK`, followed by:
+
+```text
+Setup is complete and matches the archived inputs.
+```
+
+Finally, verify all Git inputs, all 700 benchmark images, the runtime binaries,
+and the five key engine hashes:
+
+```bash
+python scripts/verify_setup.py
+```
+
+Hashing the approximately 6 GB of engine files takes some time. The fixed input
+and engine hashes are also documented in `config/sha256.txt`.
 
 ## 6. Reproduce the 350-image results
 
