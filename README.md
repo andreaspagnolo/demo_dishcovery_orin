@@ -490,6 +490,69 @@ For a quick UI-only check that does not load models, use:
 python demo_web_app.py --mock-backend
 ```
 
+### Optional browser STT and TTS models
+
+The quantized pipelines do not require speech models. To enable the browser
+voice-command button, install `faster-whisper` and download its non-quantized
+`base.en` CTranslate2 model into the ignored external-assets directory:
+
+```bash
+python -m pip install "faster-whisper>=1.1.0" "huggingface_hub>=0.23"
+
+python - <<'PY'
+from huggingface_hub import snapshot_download
+
+snapshot_download(
+    repo_id="Systran/faster-whisper-base.en",
+    local_dir="external_assets/audio/faster-whisper-base.en",
+)
+PY
+```
+
+To enable spoken responses, install Piper and download the matching Lessac
+voice files:
+
+```bash
+python -m pip install "piper-tts==1.4.2"
+
+python - <<'PY'
+from huggingface_hub import hf_hub_download
+
+for filename in (
+    "en/en_US/lessac/medium/en_US-lessac-medium.onnx",
+    "en/en_US/lessac/medium/en_US-lessac-medium.onnx.json",
+):
+    hf_hub_download(
+        repo_id="rhasspy/piper-voices",
+        filename=filename,
+        local_dir="external_assets/tts/piper",
+    )
+PY
+
+test -f external_assets/audio/faster-whisper-base.en/model.bin
+test -f external_assets/tts/piper/en/en_US/lessac/medium/en_US-lessac-medium.onnx
+test -f external_assets/tts/piper/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json
+```
+
+Start the web app with the downloaded paths explicitly selected:
+
+```bash
+python demo_web_app.py \
+  --host 127.0.0.1 \
+  --port 8787 \
+  --demo-subset good \
+  --preload-backends task1,task2_fast,calories \
+  --web-stt-model external_assets/audio/faster-whisper-base.en \
+  --piper-model external_assets/tts/piper/en/en_US/lessac/medium/en_US-lessac-medium.onnx \
+  --piper-config external_assets/tts/piper/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json
+```
+
+The STT and TTS models are ordinary FP32/FP16 application models; they are
+separate from the quantized benchmark engines and are not included in the
+Drive model package. If they are not installed, image upload and all three
+quantized routes continue to work; only voice input or spoken playback is
+unavailable.
+
 The calorie result is an estimate: the showcase has no quantity or calorie
 ground truth, so the web route demonstrates inference rather than calorie
 accuracy. Speech input and Piper text-to-speech are optional and are disabled
