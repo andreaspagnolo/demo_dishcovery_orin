@@ -1,0 +1,39 @@
+diff --git a/cpp/runtime/llmInferenceRuntime.h b/cpp/runtime/llmInferenceRuntime.h
+index cdca95b..441e99e 100644
+--- a/cpp/runtime/llmInferenceRuntime.h
++++ b/cpp/runtime/llmInferenceRuntime.h
+@@ -201,6 +201,15 @@ public:
+         return mLastInputTokenIds;
+     }
+ 
++    //! @brief Latest base-model output logits from the most recent handleRequest() call.
++    //!
++    //! For a request with maxGenerateLength=1, this is the prefill next-token
++    //! distribution, which is the score source used by Qwen3-VL-Reranker.
++    rt::Tensor const* getBaseModelOutputLogits() const noexcept
++    {
++        return mPipelineIO ? &mPipelineIO->outputLogits : nullptr;
++    }
++
+     //! @brief Check if draft model is loaded and spec-decode is available
+     bool hasDraftModel() const noexcept
+     {
+diff --git a/examples/llm/CMakeLists.txt b/examples/llm/CMakeLists.txt
+index 0d6766b..2b3c199 100644
+--- a/examples/llm/CMakeLists.txt
++++ b/examples/llm/CMakeLists.txt
+@@ -24,6 +24,14 @@ target_include_directories(
+                         ${CMAKE_SOURCE_DIR}/examples/utils)
+ add_cross_build_link_options(llm_inference)
+ 
++add_executable(llm_persistent_server llm_persistent_server.cpp)
++target_link_libraries(llm_persistent_server PRIVATE edgellmCore exampleUtils
++                                                    commonLibraryExt)
++target_include_directories(
++  llm_persistent_server PRIVATE ${COMMON_INCLUDE_DIRS}
++                                ${CMAKE_SOURCE_DIR}/examples/utils)
++add_cross_build_link_options(llm_persistent_server)
++
+ add_executable(llm_stream llm_stream.cpp)
+ target_link_libraries(llm_stream PRIVATE edgellmCore exampleUtils
+                                          commonLibraryExt)

@@ -1,0 +1,20 @@
+{
+  "task1_top20": {
+    "rows": 350,
+    "micro_f1": 0.7578772802653398,
+    "precision": 0.7879310344827586,
+    "recall": 0.7300319488817891,
+    "average_latency_seconds": 0.9779745979942215,
+    "p95_latency_seconds": 2.3591456020003534
+  },
+  "task2_top5": {
+    "rows": 350,
+    "caption_accuracy": 0.6714285714285714,
+    "caption_correct": 235,
+    "class_accuracy": 0.8742857142857143,
+    "class_correct": 306,
+    "average_latency_seconds": 1.0520211652539937,
+    "p95_latency_seconds": 2.1109962387483403,
+    "ram_delta_system_used_mib": 2515.92578125
+  }
+}

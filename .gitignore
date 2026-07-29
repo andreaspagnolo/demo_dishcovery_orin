@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+external_assets/
+model_build/
+run_outputs/
+demo_outputs/
+
+*.engine
+*.onnx
+*.onnx.data
+*.safetensors
+*.zip
+*.tar.gz

@@ -1,0 +1,4 @@
+# Additional packages used only to export/build model artifacts.
+huggingface_hub==1.15.0
+onnx==1.20.1
+open_clip_torch==3.3.0

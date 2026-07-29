@@ -1,0 +1,3 @@
+# Install the JetPack-compatible torch/torchvision wheels separately first.
+numpy==1.26.4
+Pillow==12.2.0

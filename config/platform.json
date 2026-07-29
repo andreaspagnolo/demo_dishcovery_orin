@@ -1,0 +1,14 @@
+{
+  "device": "NVIDIA Jetson AGX Orin 64GB",
+  "power_mode": "MODE_50W",
+  "nvpmodel_mode": 3,
+  "jetpack": "6.2.2",
+  "l4t": "36.5.0",
+  "kernel": "5.15.185-tegra",
+  "cuda": "12.6",
+  "tensorrt": "10.3.0",
+  "python": "3.10.20",
+  "torch": "2.8.0",
+  "torchvision": "0.23.0",
+  "tensorrt_edge_llm_commit": "f9cc74623d95d7acf1addab6026b9d410ba81f52"
+}
