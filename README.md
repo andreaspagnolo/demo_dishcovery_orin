@@ -53,7 +53,7 @@ patches/                     Persistent EdgeLLM server and reranker-logit patch
 reference_results/           Per-image predictions from the reference runs
 scripts/
 ├── run_benchmarks.py        Fixed Task 1/Task 2 reproduction entry point
-├── run_demo.py              Single-image quantized demo
+├── run_demo.py              Good-predictions subset demo; optional single-image mode
 └── verify_setup.py          Input, image, runtime, and engine verification
 ```
 
@@ -122,9 +122,6 @@ nvpmodel -q
 The model and image package is stored in:
 
 [Google Drive — Dishcovery rebuttal quantized assets](https://drive.google.com/drive/folders/194XVy0C3XyMuthyqAMJkII7oxLV4yNcu)
-
-The owner must grant access, or enable “Anyone with the link” if public
-reproduction is required.
 
 ### Browser download
 
@@ -341,27 +338,29 @@ Reranker scoring:           patched next-token true/false logits
 
 ## 7. Run the quantized demo
 
-The minimal demo runs either production quantized pipeline on one image and
-writes a complete JSON trace. It intentionally avoids a web framework, speech
-stack, calorie model, and other components unrelated to these two results.
-
-Task 1:
-
-```bash
-python scripts/run_demo.py task1 \
-  external_assets/images/showcase/MM-Food-100K-images-filtered/img_003028.jpg
-```
-
-Task 2:
+By default, the demo runs the curated good-predictions showcase: 40 Task 1
+images and 40 Task 2 images included in the Drive image archive. It uses the
+same quantized engines and inference configuration as the benchmark, while
+avoiding unrelated web, speech, and calorie-model components.
 
 ```bash
-python scripts/run_demo.py task2 \
-  external_assets/images/showcase/food500_subset/images/Fried_Tofu/Fried_Tofu_0081.jpg
+# Ingredient selection: 40 curated MM-Food-100K images
+python scripts/run_demo.py task1
+
+# Caption retrieval: 40 curated Food-500 images
+python scripts/run_demo.py task2
 ```
 
-Any readable local image can be passed. Task 1 returns selected ingredient
-labels. Task 2 retrieves the best caption from the fixed 4,940-caption bank.
-Traces are written under `demo_outputs/`.
+The generated image lists, predictions, and JSON traces are written under
+`demo_outputs/`. To run one arbitrary local image instead, pass it explicitly:
+
+```bash
+python scripts/run_demo.py task1 path/to/food.jpg
+python scripts/run_demo.py task2 path/to/food.jpg
+```
+
+Task 1 returns selected ingredient labels. Task 2 retrieves the best caption
+from the fixed 4,940-caption bank.
 
 ## 8. Rebuild the quantized models
 

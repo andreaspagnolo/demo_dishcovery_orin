@@ -88,14 +88,19 @@ def task1_command(
     output_json: Path,
     predictions_csv: Path | None = None,
     image: Path | None = None,
+    image_dir: Path | None = None,
+    images_list: Path | None = None,
+    eval_samples: int = 350,
 ) -> list[str]:
+    image_dir = image_dir or paths.task1_images
+    images_list = images_list or ROOT / "benchmark_inputs/task1/images.txt"
     command = [
         sys.executable,
         str(ROOT / "code/orin_task1_pipeline.py"),
         "--image-dir",
-        str(paths.task1_images),
+        str(image_dir),
         "--images-list",
-        str(ROOT / "benchmark_inputs/task1/images.txt"),
+        str(images_list),
         "--cleaned-json",
         str(ROOT / "benchmark_inputs/task1/MM-Food-100K_image_url_ingredients_cleaned_v1_mapped.json"),
         "--image-ground-truth-map",
@@ -141,7 +146,7 @@ def task1_command(
         str(output_json),
     ]
     if image is None:
-        command.extend(["--eval-samples", "350", "--eval-first", "--seed", "7"])
+        command.extend(["--eval-samples", str(eval_samples), "--eval-first", "--seed", "7"])
         if predictions_csv is not None:
             command.extend(["--predictions-csv", str(predictions_csv)])
     else:
@@ -155,16 +160,20 @@ def task2_command(
     output_json: Path,
     predictions_csv: Path | None = None,
     image: Path | None = None,
+    image_dir: Path | None = None,
+    images_list: Path | None = None,
 ) -> list[str]:
+    image_dir = image_dir or paths.task2_images
+    images_list = images_list or ROOT / "benchmark_inputs/task2/images.txt"
     command = [
         sys.executable,
         str(ROOT / "code/orin_task2_pipeline.py"),
         "--image-dir",
-        str(paths.task2_images),
+        str(image_dir),
         "--manifest",
         str(ROOT / "benchmark_inputs/task2/manifest.csv"),
         "--images-list",
-        str(ROOT / "benchmark_inputs/task2/images.txt"),
+        str(images_list),
         "--evaluation-json",
         str(ROOT / "benchmark_inputs/task2/evaluation_data.json"),
         "--caption-bank-json",
