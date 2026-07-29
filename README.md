@@ -3,10 +3,13 @@
 ## Reproduction baseline
 
 This repository is the minimal NVIDIA Jetson AGX Orin package for reproducing
-two quantized 350-image Dishcovery results:
+two quantized 350-image Dishcovery results and running the calorie-estimation
+demo:
 
 1. Task 1 ingredient recognition with fixed top-20 candidates.
 2. Task 2 caption retrieval with fixed top-5 candidates.
+3. Calorie estimation using SigLIP2 top-20 ingredient candidates and the
+   quantized Task 1 Qwen3-VL-4B engine.
 
 The deployed stack is hybrid precision:
 
@@ -40,11 +43,15 @@ Repository map:
 ```text
 benchmark_inputs/
 ├── caches/                  Frozen SigLIP2 text/caption embeddings
+├── calories/                Calorie and portion table plus ingredient labels
+├── demo_showcase/           Curated good-predictions image list
 ├── task1/                   Task 1 manifest, labels, and ground truth
 └── task2/                   Task 2 manifest, captions, and ground truth
 code/
 ├── quantization/            SigLIP2 and Qwen/EdgeLLM build helpers
 ├── edgellm_qwen.py          Persistent EdgeLLM client
+├── orin_calorie_demo.py     Calorie table, portion, and composition logic
+├── orin_calorie_demo_edgellm.py  Quantized EdgeLLM calorie backend
 ├── orin_measurements.py     Latency, RAM, power, and nvpmodel measurement
 ├── orin_task1_pipeline.py   Task 1 evaluation/inference
 └── orin_task2_pipeline.py   Task 2 evaluation/inference
@@ -338,10 +345,11 @@ Reranker scoring:           patched next-token true/false logits
 
 ## 7. Run the quantized demo
 
-By default, the demo runs the curated good-predictions showcase: 40 Task 1
-images and 40 Task 2 images included in the Drive image archive. It uses the
-same quantized engines and inference configuration as the benchmark, while
-avoiding unrelated web, speech, and calorie-model components.
+By default, each demo command runs the corresponding curated good-predictions
+showcase included in the Drive image archive. Task 1 and calorie estimation use
+the 40 curated MM-Food-100K images; Task 2 uses the 40 curated Food-500 images.
+The CLI uses the same quantized engines as the benchmark and omits unrelated
+web and speech components.
 
 ```bash
 # Ingredient selection: 40 curated MM-Food-100K images
@@ -349,6 +357,9 @@ python scripts/run_demo.py task1
 
 # Caption retrieval: 40 curated Food-500 images
 python scripts/run_demo.py task2
+
+# Calorie estimation: 40 curated MM-Food-100K images
+python scripts/run_demo.py calories
 ```
 
 The generated image lists, predictions, and JSON traces are written under
@@ -357,10 +368,15 @@ The generated image lists, predictions, and JSON traces are written under
 ```bash
 python scripts/run_demo.py task1 path/to/food.jpg
 python scripts/run_demo.py task2 path/to/food.jpg
+python scripts/run_demo.py calories path/to/food.jpg
 ```
 
 Task 1 returns selected ingredient labels. Task 2 retrieves the best caption
-from the fixed 4,940-caption bank.
+from the fixed 4,940-caption bank. The calorie task uses fixed top-20 SigLIP2
+ingredient candidates, one compact Qwen composition call, deterministic
+portion/count parsing, and the included calorie table to estimate total kcal.
+Its output is an estimate: the showcase has no quantity or calorie ground
+truth, so this command demonstrates inference rather than calorie accuracy.
 
 ## 8. Rebuild the quantized models
 
@@ -508,6 +524,8 @@ verification is the final compatibility test.
 - The Task 1 list is the full-difficulty 350 subset with SHA-256
   `ebbdde7f...2342f47`; it is not the older “significant subset.”
 - Task 2 uses the 350-image list but the complete 4,940-caption candidate bank.
+- Calorie estimation reuses the Task 1 INT4 Qwen3-VL-4B and shared FP16
+  SigLIP2 engines; it does not require another model download.
 - The cached embeddings are required because the serialized TensorRT SigLIP2
   backend contains only the visual encoder.
 - The Task 2 reranker must use `logit_score`; generated yes/no text is not the

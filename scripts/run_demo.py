@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 from repro_common import (
     ROOT,
     ReproPaths,
+    calories_command,
     default_assets,
     default_edge_llm,
     task1_command,
@@ -20,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a quantized Dishcovery pipeline on the default good-predictions subset or one image."
     )
-    parser.add_argument("task", choices=("task1", "task2"))
+    parser.add_argument("task", choices=("task1", "task2", "calories"))
     parser.add_argument(
         "image",
         type=Path,
@@ -35,11 +38,39 @@ def parse_args() -> argparse.Namespace:
 
 def good_prediction_paths(task: str) -> list[str]:
     source = ROOT / "benchmark_inputs/demo_showcase/good_predictions.txt"
-    prefix = "MM-Food-100K-images-filtered/" if task == "task1" else "food500_subset/images/"
+    prefix = "MM-Food-100K-images-filtered/" if task in {"task1", "calories"} else "food500_subset/images/"
     paths = [line.strip() for line in source.read_text().splitlines() if line.strip().startswith(prefix)]
     if not paths:
         raise ValueError(f"No {task} demo images found in {source}")
     return paths
+
+
+def run_calorie_batch(command: list[str], images: list[Path], output_json: Path) -> None:
+    code_dir = ROOT / "code"
+    sys.path.insert(0, str(code_dir))
+    import orin_calorie_demo_edgellm as calorie
+
+    original_argv = sys.argv[:]
+    try:
+        sys.argv = [command[1], *command[2:]]
+        calorie_args = calorie.parse_args()
+    finally:
+        sys.argv = original_argv
+
+    runtime = calorie.load_runtime(calorie_args)
+    reports = []
+    for index, image in enumerate(images, start=1):
+        report = calorie.build_single_report(runtime, image, calorie_args)
+        reports.append(report)
+        total_kcal = (report.get("calories") or {}).get("total_kcal")
+        print(f"[{index}/{len(images)}] {image.name}: {total_kcal} kcal", flush=True)
+
+    payload = {
+        "schema_version": "dishcovery_calorie_good_predictions_demo_v1",
+        "image_count": len(reports),
+        "results": reports,
+    }
+    output_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
 
 
 def main() -> None:
@@ -55,11 +86,12 @@ def main() -> None:
             raise FileNotFoundError(image)
         output_json = output_dir / f"{args.task}_{image.stem}.json"
         predictions_csv = output_dir / f"{args.task}_{image.stem}.csv"
-        command = (
-            task1_command(paths, output_json=output_json, image=image)
-            if args.task == "task1"
-            else task2_command(paths, output_json=output_json, predictions_csv=predictions_csv, image=image)
-        )
+        if args.task == "task1":
+            command = task1_command(paths, output_json=output_json, image=image)
+        elif args.task == "task2":
+            command = task2_command(paths, output_json=output_json, predictions_csv=predictions_csv, image=image)
+        else:
+            command = calories_command(paths, output_json=output_json, image=image)
     else:
         image_paths = good_prediction_paths(args.task)
         showcase_root = paths.assets / "images/showcase"
@@ -70,8 +102,8 @@ def main() -> None:
         selected_list.write_text("\n".join(image_paths) + "\n")
         output_json = output_dir / f"{args.task}_good_predictions.json"
         predictions_csv = output_dir / f"{args.task}_good_predictions.csv"
-        command = (
-            task1_command(
+        if args.task == "task1":
+            command = task1_command(
                 paths,
                 output_json=output_json,
                 predictions_csv=predictions_csv,
@@ -79,15 +111,21 @@ def main() -> None:
                 images_list=selected_list,
                 eval_samples=len(image_paths),
             )
-            if args.task == "task1"
-            else task2_command(
+        elif args.task == "task2":
+            command = task2_command(
                 paths,
                 output_json=output_json,
                 predictions_csv=predictions_csv,
                 image_dir=showcase_root,
                 images_list=selected_list,
             )
-        )
+        else:
+            images = [showcase_root / path for path in image_paths]
+            command = calories_command(paths, output_json=output_json, image=images[0])
+            print("+", " ".join(command), flush=True)
+            run_calorie_batch(command, images, output_json)
+            print(f"Trace: {output_json}")
+            return
     print("+", " ".join(command), flush=True)
     subprocess.run(command, cwd=paths.root, check=True)
     print(f"Trace: {output_json}")

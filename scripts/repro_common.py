@@ -55,7 +55,7 @@ def required_runtime_paths(paths: ReproPaths, task: str) -> dict[str, Path]:
         "EdgeLLM persistent server": paths.edge_llm / "build/examples/llm/llm_persistent_server",
         "EdgeLLM plugin": paths.edge_llm / "build/libNvInfer_edgellm_plugin.so",
     }
-    if task == "task1":
+    if task in {"task1", "calories"}:
         return {
             **common,
             "Task 1 images": paths.task1_images,
@@ -225,3 +225,49 @@ def task2_command(
     if predictions_csv is not None:
         command.extend(["--predictions-csv", str(predictions_csv)])
     return command
+
+
+def calories_command(paths: ReproPaths, *, output_json: Path, image: Path) -> list[str]:
+    return [
+        sys.executable,
+        str(ROOT / "code/orin_calorie_demo_edgellm.py"),
+        "--image",
+        str(image),
+        "--output-json",
+        str(output_json),
+        "--calories-csv",
+        str(ROOT / "benchmark_inputs/calories/calories_realistic_average_portions.csv"),
+        "--cleaned-json",
+        str(ROOT / "benchmark_inputs/task1/MM-Food-100K_image_url_ingredients_cleaned_v1_mapped.json"),
+        "--captions",
+        str(ROOT / "benchmark_inputs/calories/captions_cleaned.txt"),
+        "--siglip-backend",
+        "tensorrt_engine",
+        "--siglip-trt-engine",
+        str(paths.siglip_engine),
+        "--text-cache",
+        str(ROOT / "benchmark_inputs/caches/calorie_siglip2_text_cache.npz"),
+        "--text-cache-require-hit",
+        "--calorie-candidate-list-mode",
+        "fixed_topk",
+        "--calorie-candidate-top-k",
+        "20",
+        "--calorie-counting-logic",
+        "cut-aware",
+        "--edgellm-calorie-logic",
+        "compact",
+        "--vlm-backend",
+        "edgellm",
+        "--edgellm-root",
+        str(paths.edge_llm),
+        "--edgellm-model-name",
+        "Qwen3-VL-4B-Instruct",
+        "--edgellm-llm-engine-profile",
+        "max-input-4096",
+        "--edgellm-llm-engine-dir",
+        str(paths.task1_llm),
+        "--edgellm-visual-engine-dir",
+        str(paths.task1_visual),
+        "--edgellm-runtime-mode",
+        "persistent",
+    ]
