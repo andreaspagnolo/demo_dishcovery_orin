@@ -162,6 +162,7 @@ def task2_command(
     image: Path | None = None,
     image_dir: Path | None = None,
     images_list: Path | None = None,
+    top_k: int = 7,
 ) -> list[str]:
     image_dir = image_dir or paths.task2_images
     images_list = images_list or ROOT / "benchmark_inputs/task2/images.txt"
@@ -195,9 +196,9 @@ def task2_command(
         "--siglip-keep-gap",
         "3.0",
         "--siglip-top-k",
-        "5",
+        str(top_k),
         "--rerank-top-k",
-        "5",
+        str(top_k),
         "--reranker-size",
         "2B",
         "--reranker-backend",

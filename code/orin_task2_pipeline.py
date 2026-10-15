@@ -161,13 +161,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--siglip-top-k",
         type=int,
-        default=5,
+        default=7,
         help="Caption recall depth before Qwen reranking.",
     )
     parser.add_argument(
         "--rerank-top-k",
         type=int,
-        default=5,
+        default=7,
         help="Number of caption candidates to send to Qwen per image.",
     )
     parser.add_argument(

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -35,8 +36,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--assets", type=Path, default=default_assets())
     parser.add_argument("--edge-llm", type=Path, default=default_edge_llm())
     parser.add_argument("--output-dir", type=Path, default=Path("run_outputs"))
+    parser.add_argument("--task2-top-k", type=int, choices=(5, 7), default=None,
+                        help="Task 2 candidate pool (default: 7; archived reference: 5).")
+    parser.add_argument("--archived-reference", action="store_true",
+                        help="Replay and verify the archived 350-image top-20/top-5 results.")
     parser.add_argument("--print-only", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.archived_reference and args.task2_top_k not in (None, 5):
+        parser.error("--archived-reference requires Task 2 top-5")
+    if args.task2_top_k is None:
+        args.task2_top_k = 5 if args.archived_reference else 7
+    return args
 
 
 def verify_metrics(task: str, output_json: Path) -> None:
@@ -53,21 +63,26 @@ def verify_metrics(task: str, output_json: Path) -> None:
 
 
 def run_one(task: str, args: argparse.Namespace, paths: ReproPaths) -> None:
-    validate_runtime(paths, task)
-    task_dir = args.output_dir.resolve() / task
+    profile = "archived_reference" if args.archived_reference else "stage4e"
+    task_dir = args.output_dir.resolve() / profile / task
     output_json = task_dir / "result.json"
     predictions_csv = task_dir / "predictions.csv"
-    task_dir.mkdir(parents=True, exist_ok=True)
     command = (
         task1_command(paths, output_json=output_json, predictions_csv=predictions_csv)
         if task == "task1"
-        else task2_command(paths, output_json=output_json, predictions_csv=predictions_csv)
+        else task2_command(paths, output_json=output_json, predictions_csv=predictions_csv,
+                           top_k=args.task2_top_k)
     )
-    print("+", " ".join(command), flush=True)
+    print("+", shlex.join(command), flush=True)
     if args.print_only:
         return
+    validate_runtime(paths, task)
+    if output_json.exists() or predictions_csv.exists():
+        raise FileExistsError(f"Existing results in {task_dir}; choose a new --output-dir.")
+    task_dir.mkdir(parents=True, exist_ok=True)
     subprocess.run(command, cwd=paths.root, check=True)
-    verify_metrics(task, output_json)
+    if args.archived_reference:
+        verify_metrics(task, output_json)
 
 
 def main() -> None:

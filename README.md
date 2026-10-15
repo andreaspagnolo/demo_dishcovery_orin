@@ -3,11 +3,11 @@
 ## Reproduction baseline
 
 This repository is the minimal NVIDIA Jetson AGX Orin package for reproducing
-two quantized 350-image Dishcovery results and running the calorie-estimation
+the final Stage 4-E settings on two quantized 350-image benchmarks and running the calorie-estimation
 demo:
 
 1. Task 1 ingredient recognition with fixed top-20 candidates.
-2. Task 2 caption retrieval with fixed top-5 candidates.
+2. Task 2 caption retrieval with fixed top-7 candidates.
 3. Calorie estimation using SigLIP2 top-20 ingredient candidates and the
    quantized Task 1 Qwen3-VL-4B engine.
 
@@ -24,6 +24,7 @@ multi-gigabyte TensorRT/EdgeLLM artifacts are downloaded from Google Drive.
 
 ## Contents
 
+- [Paper Reproducibility & Auxiliary Dataset Artifacts](#paper-reproducibility--auxiliary-dataset-artifacts)
 - [1. Repository and asset layout](#1-repository-and-asset-layout)
 - [2. Reference platform](#2-reference-platform)
 - [3. Download external assets](#3-download-external-assets)
@@ -36,6 +37,64 @@ multi-gigabyte TensorRT/EdgeLLM artifacts are downloaded from Google Drive.
 - [10. Ownership and license](#10-ownership-and-license)
 
 ---
+
+## Paper Reproducibility & Auxiliary Dataset Artifacts
+
+The revised MDPI Electronics paper uses Task 1 **K=20**, relative-gap gate
+**0.25**, and Task 2 **K=7** (top-7), scaled-score gap gate **3.0**
+(equivalent to a cosine gap of 0.03).
+
+- [`vocabulary_mapping_complete.csv`](vocabulary_mapping_complete.csv): the
+  complete 399->295 Task 1 mapping, copied byte-for-byte from the frozen
+  `reports/harmonized_baseline/20261013_author_reviewed_policy_v1/evaluation/`
+  artifact. Policy: `task1_399_to_295_author_reviewed_v1`; 399 rows comprising
+  205 UNCHANGED, 112 LEXICAL, 26 SEMANTIC_MERGE, and 56 REMOVE decisions.
+  This author-reviewed policy does not retroactively change archived predictions.
+- [`code/build_food100k_dishcovery_aligned_subset.py`](code/build_food100k_dishcovery_aligned_subset.py):
+  deterministic MM-Food-100K subset construction, seed `20260521`. The original
+  sampling and shortage-fill algorithm is retained with standard-library readers
+  inlined so reconstruction requires no inference dependencies.
+- [`dataset/images_dishcovery_aligned_qwen3_counts.txt`](dataset/images_dishcovery_aligned_qwen3_counts.txt)
+  and [`dataset/image_ground_truth_rows_dishcovery_aligned_qwen3_counts.csv`](dataset/image_ground_truth_rows_dishcovery_aligned_qwen3_counts.csv):
+  the frozen 6,756-image list and annotation-row correspondence.
+- [`dataset/captions_cleaned.txt`](dataset/captions_cleaned.txt): 295 ingredient
+  captions. The 14,119-image source pool is in [`dataset/images.txt`](dataset/images.txt),
+  with its row map in [`labels/image_ground_truth_rows.csv`](labels/image_ground_truth_rows.csv).
+  Construction reads the existing full annotation JSON at
+  `benchmark_inputs/task1/MM-Food-100K_image_url_ingredients_cleaned_v1_mapped.json`.
+
+Verify the published subset without writing files:
+
+```bash
+python code/build_food100k_dishcovery_aligned_subset.py --source-ground-truth-map labels/image_ground_truth_rows.csv --seed 20260521 --verify-only
+```
+
+Reconstruct it (the seed also defaults to `20260521`):
+
+```bash
+python code/build_food100k_dishcovery_aligned_subset.py --source-ground-truth-map labels/image_ground_truth_rows.csv --seed 20260521
+```
+
+Construction preserves matching published files and refuses to replace different
+ones; summary files go to `run_outputs/subset/`. No image downloads are needed
+for this metadata reconstruction. The subset approximates ingredient-count
+frequencies, not ingredient identities or visual difficulty.
+
+After installing the runtime and assets below, run the final Stage 4-E
+configuration on the committed 350-image benchmarks:
+
+```bash
+# Task 1: fixed K=20, relative-gap gate 0.25
+python scripts/run_benchmarks.py task1
+# Task 2: fixed top-7, scaled-score gap gate 3.0
+python scripts/run_benchmarks.py task2 --task2-top-k 7
+```
+
+Use `--print-only` to inspect the complete CLI without inference. These commands
+use the 350-image manifests; they do not reproduce the paper's full-set metrics
+on 6,756 Task 1 / 2,820 Task 2 queries. Top-7 metrics for these 350-image
+benchmarks must be measured anew. Outputs go to
+`run_outputs/stage4e/`, and existing result files are never overwritten.
 
 ## 1. Repository and asset layout
 
@@ -385,48 +444,52 @@ without running inference:
 
 ```bash
 python scripts/run_benchmarks.py task1 --print-only
-python scripts/run_benchmarks.py task2 --print-only
+python scripts/run_benchmarks.py task2 --task2-top-k 7 --print-only
 ```
 
-Run Task 1 with the legacy prompt/fusion/selector and fixed top-20 candidate
-list:
+Run Task 1 with the legacy prompt/fusion/selector, fixed top-20 candidate
+list, and relative-gap gate 0.25:
 
 ```bash
 python scripts/run_benchmarks.py task1
 ```
 
-Run Task 2 with the 4,940-caption bank, fixed top-5 candidate list,
+Run Task 2 with the 4,940-caption bank, fixed top-7 candidate list,
 SigLIP-guarded final selection, and gap 3.0:
 
 ```bash
-python scripts/run_benchmarks.py task2
+python scripts/run_benchmarks.py task2 --task2-top-k 7
 ```
 
 Run both sequentially:
 
 ```bash
-python scripts/run_benchmarks.py all
+python scripts/run_benchmarks.py all --task2-top-k 7
 ```
 
 Outputs are written to:
 
 ```text
-run_outputs/
+run_outputs/stage4e/
 ├── task1/result.json
 ├── task1/predictions.csv
 ├── task2/result.json
 └── task2/predictions.csv
 ```
 
-The wrapper fails if accuracy differs from the archived values:
+To verify the archived Task 1 metrics:
+
+```bash
+python scripts/run_benchmarks.py task1 --archived-reference
+```
+
+This writes to `run_outputs/archived_reference/` and checks the Task 1 values
+below. Task 2 top-7 results require a new run on the 350-image benchmark:
 
 | Task | Fixed policy | Expected quality | Reference latency |
 | --- | --- | ---: | ---: |
 | Task 1 | Legacy fixed top-20 | F1 `0.757877`; P/R `0.787931/0.730032` | avg `0.978 s`; P95 `2.359 s` |
-| Task 2 | Guarded fixed top-5 | caption acc `0.671429`; class acc `0.874286` | avg `1.052 s`; P95 `2.111 s` |
-
-Task 2 reference RAM was `2515.93 MiB` using
-`peak system-used RAM - baseline system-used RAM`.
+| Task 2 | Guarded fixed top-7 | Pending measurement | Pending measurement |
 
 Accuracy should be deterministic with identical artifacts. Latency and RAM
 vary with thermals, clocks, power mode, background processes, and JetPack.
@@ -453,8 +516,8 @@ Rows/order:                 committed 350-row manifest
 Seed:                       42
 Caption bank:               all 4,940 captions
 Caption text:               class_caption
-SigLIP candidates:          fixed top-5
-Reranker candidates:        fixed top-5
+SigLIP candidates:          fixed top-7
+Reranker candidates:        fixed top-7
 Final policy:               siglip_guarded
 Guard gap:                  3.0
 Reranker scoring:           patched next-token true/false logits
@@ -693,7 +756,7 @@ After any rebuild, run:
 
 ```bash
 python scripts/verify_setup.py --skip-engine-hashes
-python scripts/run_benchmarks.py all
+python scripts/run_benchmarks.py all --task2-top-k 7
 ```
 
 A rebuilt TensorRT engine may have a different SHA-256 because engine
