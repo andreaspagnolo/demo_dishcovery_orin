@@ -487,8 +487,8 @@ below.
 
 | Task | Fixed policy | Expected quality | Reference latency |
 | --- | --- | ---: | ---: |
-| Task 1 | Legacy fixed top-20 | F1 `0.757877`; P/R `0.787931/0.730032` | avg `0.978 s`; P95 `2.359 s` |
-| Task 2 | Guarded fixed top-7 | Top-1 Acc. `0.689` | `1.388 s` |
+| Task 1 | Legacy fixed top-20 | F1 `0.757877` | avg `0.978 s`|
+| Task 2 | Guarded fixed top-7 | Top-1 Acc. `0.689` | avg `1.388 s` |
 
 Accuracy should be deterministic with identical artifacts. Latency and RAM
 vary with thermals, clocks, power mode, background processes, and JetPack.
