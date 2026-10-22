@@ -92,8 +92,7 @@ python scripts/run_benchmarks.py task2 --task2-top-k 7
 
 Use `--print-only` to inspect the complete CLI without inference. These commands
 use the 350-image manifests; they do not reproduce the paper's full-set metrics
-on 6,756 Task 1 / 2,820 Task 2 queries. Top-7 metrics for these 350-image
-benchmarks must be measured anew. Outputs go to
+on 6,756 Task 1 / 2,820 Task 2 queries. Outputs go to
 `run_outputs/stage4e/`, and existing result files are never overwritten.
 
 ## 1. Repository and asset layout
@@ -484,12 +483,12 @@ python scripts/run_benchmarks.py task1 --archived-reference
 ```
 
 This writes to `run_outputs/archived_reference/` and checks the Task 1 values
-below. Task 2 top-7 results require a new run on the 350-image benchmark:
+below.
 
 | Task | Fixed policy | Expected quality | Reference latency |
 | --- | --- | ---: | ---: |
 | Task 1 | Legacy fixed top-20 | F1 `0.757877`; P/R `0.787931/0.730032` | avg `0.978 s`; P95 `2.359 s` |
-| Task 2 | Guarded fixed top-7 | Pending measurement | Pending measurement |
+| Task 2 | Guarded fixed top-7 | Top-1 Acc. `0.689` | `1.388 s` |
 
 Accuracy should be deterministic with identical artifacts. Latency and RAM
 vary with thermals, clocks, power mode, background processes, and JetPack.
